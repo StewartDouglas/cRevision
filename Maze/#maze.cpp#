@@ -1,0 +1,377 @@
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+#include <cassert>
+#include <cstring>
+#include "maze.h"
+
+using namespace std;
+
+/* You are pre-supplied with the functions below. Add your own 
+   function definitions to the end of this file. */
+
+/* helper function which allocates a dynamic 2D array */
+char **allocate_2D_array(int rows, int columns) {
+  char **m = new char *[rows];
+  assert(m);
+  for (int r=0; r<rows; r++) {
+    m[r] = new char[columns];
+    assert(m[r]);
+  }
+  return m;
+}
+
+/* helper function which deallocates a dynamic 2D array */
+void deallocate_2D_array(char **m, int rows) {
+  for (int r=0; r<rows; r++)
+    delete [] m[r];
+  delete [] m;
+}
+
+/* helper function for internal use only which gets the dimensions of a maze */
+bool get_maze_dimensions(const char *filename, int &height, int &width) {
+  char line[512];
+  
+  ifstream input(filename);
+
+  height = width = 0;
+
+  input.getline(line,512);  
+  while (input) {
+    if ( (int) strlen(line) > width)
+      width = strlen(line);
+    height++;
+    input.getline(line,512);  
+  }
+
+  if (height > 0)
+    return true;
+  return false;
+}
+
+/* pre-supplied function to load a maze from a file*/
+char **load_maze(const char *filename, int &height, int &width) {
+
+  bool success = get_maze_dimensions(filename, height, width);
+  
+  if (!success)
+    return NULL;
+
+  char **m = allocate_2D_array(height, width);
+  
+  ifstream input(filename);
+
+  char line[512];
+
+  for (int r = 0; r<height; r++) {
+    input.getline(line, 512);
+    strcpy(m[r], line);
+  }
+  
+  return m;
+}
+
+/* pre-supplied function to print a maze */
+void print_maze(char **m, int height, int width) {
+  cout << setw(4) << " " << " ";
+  for (int c=0; c<width; c++)
+    if (c && (c % 10) == 0) 
+      cout << c/10;
+    else
+      cout << " ";
+  cout << endl;
+
+  cout << setw(4) << " " << " ";
+  for (int c=0; c<width; c++)
+    cout << (c % 10);
+  cout << endl;
+
+  for (int r=0; r<height; r++) {
+    cout << setw(4) << r << " ";    
+    for (int c=0; c<width; c++) 
+      cout << m[r][c];
+    cout << endl;
+  }
+}
+
+
+
+
+bool find_marker(char ch, char** maze, int height, int width, int& row, int& column){
+
+  for(int r = 0; r < height; r++){
+    for(int c = 0; c < width; c++){
+      if(maze[r][c] == ch){
+	row = r;
+	column = c;
+	return true;
+      }
+    }
+  }
+  row = column = -1;
+  return false;
+}
+
+
+bool valid_solution(const char* path, char** maze, int height, int width){
+
+  // Find '>' character
+  int row, column;
+  bool flag;
+  flag = find_marker('>', maze, height, width, row, column); 
+  if(!flag) return false;
+  
+  // Iterate over the directions in path
+  while(*path != '\0'){
+
+    if(invalid_character(*path))
+      return false;
+
+    make_move(*path,row,column);
+
+    if(at_hedge(maze[row][column]))
+      return false;
+
+    if(out_of_bounds(height,width,row,column))
+      return false;
+
+    if(maze[row][column] == '#')
+      return false;
+
+    // Go to next direction on path
+    ++path;
+
+
+  }
+
+  return (maze[row][column] == 'X');
+
+}
+
+void make_move(char ch, int& row, int&column){
+
+  switch(ch){
+  case 'N':
+    --row;
+    break;
+  case 'W':
+    --column;
+    break;
+  case 'E':
+    ++column;
+    break;
+  case 'S':
+    ++row;
+    break;
+  default:
+    break;
+
+  }
+}
+
+
+bool invalid_character(char ch){
+
+  return(!(ch == 'N' || ch == 'W' || ch == 'E' || ch == 'S'));
+
+}
+
+bool at_hedge(char ch){
+
+    return(ch == '+' || ch == '|' || ch == '-');
+
+}
+
+bool out_of_bounds(int height, int width, int row, int column){
+
+  return (height <= row || width <= column);
+
+}
+
+
+
+bool valid_row(int row, int height){
+
+  return (row < height && row > 0);
+
+}
+
+
+bool valid_col(int col, int width){
+
+  return (col < width && col > 0);
+
+}
+
+
+bool valid_square(char square){
+
+  return (square != '+' && square != '|' && square != '-' && square != '#');
+
+}
+
+
+bool path_helper(char **map, int height, int width, int row, int col, char start, char dest, char* dir){
+
+
+  // Base case. At the end;
+  if (map[row][col] == dest){
+    *dir = '\0';
+    return true;
+  }
+
+  // Lay breadcrumb at current position (if not at start)
+
+  if (map[row][col] != start)
+    map[row][col] = '#';
+
+
+  // try N
+  // Check that if we move north it is a valid square
+  if ((row - 1) > 0 && valid_square(map[row - 1][col])){
+    *dir = 'N';
+    if (path_helper(map, height, width, row - 1, col, start, dest, dir + 1))
+      return true;
+  }
+
+  // try S
+  if ((row + 1) < height && valid_square(map[row + 1][col])){
+    *dir = 'S'; 
+    if (path_helper(map, height, width, row + 1, col,start, dest, dir + 1))
+      return true;
+  }
+
+  // try E
+  if ((col + 1) < width && valid_square(map[row][col + 1])){
+    *dir = 'E'; 
+    if (path_helper(map, height, width, row, col + 1,start, dest, dir + 1))
+      return true;
+  }
+
+  // try W
+  if ((col - 1) > 0 && valid_square(map[row][col - 1])){
+    *dir = 'W'; 
+    if (path_helper(map, height, width, row, col - 1,start, dest, dir + 1))
+      return true;
+  }
+
+  // All false, backtrack
+  map[row][col] = ' ';
+  *dir = '\0';
+  return false;
+
+}
+
+
+const char* find_path(char **maze, int height, int width, char start, char end){
+
+  int startRow, startCol;
+  static char solution[1024];
+  
+  if (find_marker(start, maze, height, width, startRow, startCol)){
+    if (path_helper(maze, height, width, startRow, startCol, start, end, solution))
+      return solution;
+  }
+
+  return "no solution";
+
+}
+
+
+
+
+/*
+
+char* find_path(char** maze, int height, int width, char start, char end){
+
+  int row, column;
+  bool flag;
+  char* path;
+  flag = find_marker(start, maze, height, width, row, column); 
+  if(!flag){ 
+    path = const_cast<char *>("no solution");
+    return path;
+  }
+  
+  // Base case
+  if(valid_solution("N",maze,height,width)){
+    maze[row][column] = '#';
+    *path = 'N';
+    return path;
+  }
+  else if(valid_solution("S",maze,height,width)){
+    maze[row][column] = '#';
+    *path = 'S';
+    return path;
+  }
+  else if(valid_solution("E",maze,height,width)){
+    maze[row][column] = '#';
+    *path = 'E';
+    return path;
+  }
+  else if(valid_solution("W",maze,height,width)){
+    maze[row][column] = '#';
+    *path = 'W';
+    return path;
+  }
+  
+  // Recursive call
+  // North
+  if(valid_path(maze,height,width,row,column,'N')){
+    maze[row][column] = '#';
+    maze[row-1][column] = '>';
+    ++path = find_path(maze,height,width,'>',end);
+  }
+  // South
+  else if(valid_path(maze,height,width,row,column,'S')){
+    maze[row][column] = '#';
+    maze[row+1][column] = '>';
+    ++path = find_path(maze,height,width,'>',end);	  
+  }
+  // East
+  else if(valid_path(maze,height,width,row,column,'E')){
+    maze[row][column] = '#';
+    maze[row][column+1] = '>';
+    ++path = find_path(maze,height,width,'>',end);
+  }
+  // West
+  else{
+    if(!valid_path(maze,height,width,row,column,'W') && maze[row][column-1] != '#'){
+      path = const_cast<char*>("no solution");
+      return path;
+    }
+    else{
+      maze[row][column-1] = '>';
+      --path = find_path(maze,height,width,'>',end);
+    }
+  }
+  return path;
+}
+
+bool valid_path(char** maze, int height, int width, int row, int column, char direction){
+
+  switch(direction){
+  case 'N':
+    --row;
+    break;
+  case 'W':
+    --column;
+    break;
+  case 'E':
+    ++column;
+    break;
+  case 'S':
+    ++row;
+    break;
+  default:
+    break;
+  }
+  
+
+  return(!at_hedge(maze[row][column]) && !out_of_bounds(height,width,row,column));
+
+}
+
+
+
+*/

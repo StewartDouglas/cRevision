@@ -1,0 +1,88 @@
+bool valid_row(int row, int height){
+
+  return (row < height && row > 0);
+
+}
+
+
+bool valid_col(int col, int width){
+
+  return (col < width && col > 0);
+
+}
+
+
+bool valid_square(char square){
+
+  return (square != '+' && square != '|' && square != '-' && square != '#');
+
+}
+
+
+bool path_helper(char **map, int height, int width, int row, int col, char start, char dest, char* dir){
+
+
+  // Base case. At the end;
+  if (map[row][col] == dest){
+    *dir = '\0';
+    return true;
+  }
+
+  // Lay breadcrumb at current position (if not at start)
+
+  if (map[row][col] != start)
+    map[row][col] = '#';
+
+
+  // try N
+
+  // Check that, if we move north, it is a valid square
+  if ((row - 1) > 0 && valid_square(map[row - 1][col])){
+    *dir = 'N';
+    if (path_helper(map, height, width, row - 1, col, start, dest, dir + 1))
+      return true;
+
+  }
+
+  // try S
+  if ((row + 1) < height && valid_square(map[row + 1][col])){
+    *dir = 'S'; 
+    if (path_helper(map, height, width, row + 1, col,start, dest, dir + 1))
+      return true;
+  }
+
+  // try E
+  if ((col + 1) < width && valid_square(map[row][col + 1])){
+    *dir = 'E'; 
+    if (path_helper(map, height, width, row, col + 1,start, dest, dir + 1))
+      return true;
+  }
+
+  // try W
+  if ((col - 1) > 0 && valid_square(map[row][col - 1])){
+    *dir = 'W'; 
+    if (path_helper(map, height, width, row, col - 1,start, dest, dir + 1))
+      return true;
+  }
+
+  // All false, backtrack
+  map[row][col] = ' ';
+  *dir = '\0';
+  return false;
+
+}
+
+
+const char* find_path(char **maze, int height, int width, char start, char end){
+
+  int startRow, startCol;
+  static char solution[1024];
+  
+  if (find_marker(start, maze, height, width, startRow, startCol)){
+    if (path_helper(maze, height, width, startRow, startCol, start, end, solution))
+      return solution;
+  }
+
+  return "no solution";
+
+}
